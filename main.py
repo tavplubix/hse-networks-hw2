@@ -21,8 +21,10 @@ class NetGraph:
         self.edges = []
         self.main_routes = {}
         self.reserve_routes = {}
+        self.name = None
 
     def parse_graph(self, file_path):
+        self.name = file_path
         if self.v:
             print('Parsing graph from GraphML file:', file_path)
         ns = {'graphml': 'http://graphml.graphdrawing.org/xmlns'}
@@ -57,7 +59,6 @@ class NetGraph:
             except:
                 if self.v:
                     print('Cannot parse edge', edge, edge.attrib, edge.text, 'Skipping it')
-
 
         if self.v:
             print(f'Parsed {len(self.nodes)} nodes and {len(self.edges)} edges')
@@ -111,8 +112,8 @@ class NetGraph:
                     continue
                 route = nx.reconstruct_path(src, dst, routes)
                 self.main_routes[(src, dst)] = {'route': route.copy(),
-                                               'len': lens[src][dst],
-                                               'delay': lens[src][dst] * self.delay_mks}
+                                                'len': lens[src][dst],
+                                                'delay': lens[src][dst] * self.delay_mks}
         if self.v:
             print(f'Found {len(self.main_routes)} main routes')
 
@@ -202,14 +203,41 @@ class NetGraph:
             print(src, dst, 'main', p['route'], p['delay'], sep='\t')
         print()
 
-    def draw_graph(self):
+    def draw_graph(self, src, dst, file_path):
         labels = dict()
         for node in self.nodes:
             labels[node] = self.nodes[node]['lab']
-        pos = nx.spring_layout(self.graph)
+
+        try:
+            pos = nx.planar_layout(self.graph)
+        except nx.NetworkXException:
+            if self.v:
+                print('Cannot create planar layout')
+            pos = nx.spring_layout(self.graph)
+
         nx.draw_networkx(self.graph, pos=pos, with_labels=False)
-        nx.draw_networkx_labels(self.graph, pos, labels=labels)
-        plt.show()
+        nx.draw_networkx(self.graph, pos=pos, with_labels=False)
+
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=[src, dst], node_color='g')
+        if (src, dst) in self.main_routes:
+            mr = self.main_routes[(src, dst)]['route']
+            edges = []
+            for i in range(1, len(mr)):
+                edges.append((mr[i-1], mr[i]))
+            nx.draw_networkx_edges(self.graph, pos, edgelist=edges, edge_color='g', width=2)
+
+        if (src, dst) in self.reserve_routes:
+            mr = self.reserve_routes[(src, dst)]['route']
+            edges = []
+            for i in range(1, len(mr)):
+                edges.append((mr[i-1], mr[i]))
+            nx.draw_networkx_edges(self.graph, pos, edgelist=edges, edge_color='r', width=2)
+
+        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=9)
+        plt.title(self.name)
+        plt.text(0.5, 0.97, "green route is main, red route is reserve",
+                 horizontalalignment='center', transform=plt.gca().transAxes)
+        plt.savefig(file_path + '.png')
 
 
 def main():
@@ -219,10 +247,11 @@ def main():
     argparser.add_argument('-d', type=int, dest='dst', help='destination node to print path')
     argparser.add_argument('-r', help='print reserve path', action="store_true")
     argparser.add_argument('-v', help='verbose', action="store_true")
+    argparser.add_argument('-i', type=str, dest='img_path', help='path to save .png with route visualization')
 
     args = argparser.parse_args()
-    print(args)
     assert((args.src is None) == (args.dst is None))
+    assert(not args.img_path or args.src is not None)
 
     g = NetGraph()
     g.parse_graph(args.file_path)
@@ -233,7 +262,8 @@ def main():
     g.print_routes(os.path.basename(args.file_path) + '_rotes.csv', args.r)
     if args.src:
         g.print_route(args.src, args.dst, args.r)
-    #g.draw_graph()
+    if args.img_path:
+        g.draw_graph(args.src, args.dst, args.img_path)
 
 
 if __name__ == "__main__":
