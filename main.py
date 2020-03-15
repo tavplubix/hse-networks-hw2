@@ -259,7 +259,7 @@ def main():
     g.find_main_routes()
     if args.r:
         g.find_reserve_routes()
-    g.print_routes(os.path.basename(args.file_path) + '_rotes.csv', args.r)
+    g.print_routes(os.path.basename(args.file_path) + '_routes.csv', args.r)
     if args.src:
         g.print_route(args.src, args.dst, args.r)
     if args.img_path:
