@@ -43,14 +43,20 @@ class NetGraph:
                 self.nodes[node_id] = {'lat': node_lat, 'lon': node_lon, 'lab': node_label}
             except:
                 if self.v:
-                    print('Cannot parse node', node, 'Skipping it')
+                    print('Cannot parse node', node, node.attrib, node.text, 'Skipping it')
 
         for edge in graph_data.findall("graphml:edge", ns):
             try:
-                self.edges.append((int(edge.attrib['source']), int(edge.attrib['target'])))
+                src = int(edge.attrib['source'])
+                dst = int(edge.attrib['target'])
+                if src not in self.nodes or dst not in self.nodes:
+                    if self.v:
+                        print(f'Skipping edge {(src, dst)} because some some of this nodes was skipped')
+                    continue
+                self.edges.append((src, dst))
             except:
                 if self.v:
-                    print('Cannot parse edge', edge, 'Skipping it')
+                    print('Cannot parse edge', edge, edge.attrib, edge.text, 'Skipping it')
 
 
         if self.v:
